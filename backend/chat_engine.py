@@ -3,6 +3,7 @@
 import json
 import numpy as np
 from pydantic import BaseModel
+from typing import Optional
 from google.genai import types
 from backend.config import client
 from backend.db_core import get_db_connection
