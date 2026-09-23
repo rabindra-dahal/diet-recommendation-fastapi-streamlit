@@ -36,5 +36,9 @@ jobs:
     - name: 🧪 Execute Backend Unit & Integration Tests
       env:
         GEMINI_API_KEY: "mock_ci_test_key_placeholder"
+        # ─── NEW: APPEND LOCAL PROJECT ROOT FOLDER DIRECTLY TO PYTHON PATH ───
+        PYTHONPATH: "."
+      # Removed 'or true' sequence string parameters to ensure clean folder scanning
       run: |
-        pytest backend/tests/ or true
+        pytest backend/tests/
+
