@@ -70,28 +70,33 @@ def calculate_kpi_summary() -> dict:
     
     rows = cursor.execute("SELECT calories, entry_notes FROM dynamic_food_log").fetchall()
     total_saved = len(rows)
-    total_calories = sum([r for r, _ in rows if r is not None])
+    total_calories = sum([r[0] for r in rows if r[0] is not None])
     
+    # ─── BULLETPROOF TEXT PARSING SWEEP ───
     protein, carbs, fats = 0, 0, 0
     for _, notes in rows:
         if not notes:
             continue
         try:
-            for part in notes.replace(" ", "").split(","):
-                if part.startswith("P:") and "g" in part:
-                    protein += int(part.split("P:").split("g"))
-                elif part.startswith("C:") and "g" in part:
-                    carbs += int(part.split("C:").split("g"))
-                elif part.startswith("F:") and "g" in part:
-                    fats += int(part.split("F:").split("g"))
+            # Force string transformation to lower case and completely remove white spaces
+            clean_notes = notes.replace(" ", "").lower()
+            
+            # Split elements cleanly by commas: ["p:35g", "c:50g", "f:12g"]
+            for part in clean_notes.split(","):
+                if part.startswith("p:") and "g" in part:
+                    protein += int(part.replace("p:", "").replace("g", ""))
+                elif part.startswith("c:") and "g" in part:
+                    carbs += int(part.replace("c:", "").replace("g", ""))
+                elif part.startswith("f:") and "g" in part:
+                    fats += int(part.replace("f:", "").replace("g", ""))
         except Exception:
-            pass
+            pass  # Keep reading remaining data rows safely if one line is corrupted
             
     water_res = cursor.execute(
         "SELECT SUM(amount_ml) FROM hydration_log WHERE log_date = ?",
         (datetime.now().strftime("%Y-%m-%d"),),
     ).fetchone()
-    total_water = water_res if water_res and water_res is not None else 0
+    total_water = water_res[0] if water_res and water_res[0] is not None else 0
     
     api_res = cursor.execute("SELECT COUNT(*) FROM api_usage_telemetry").fetchone()
     weight_rows = cursor.execute(
@@ -106,7 +111,7 @@ def calculate_kpi_summary() -> dict:
         "carbs": carbs,
         "fats": fats,
         "total_water": total_water,
-        "api_calls": api_res if api_res else 0,
+        "api_calls": api_res[0] if api_res else 0,
         "weight_logs": weight_rows
     }
 

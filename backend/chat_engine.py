@@ -1,9 +1,9 @@
 """Module organizing cosine similarity vector lookups and Gemini system prompting chains."""
 
 import json
+from typing import Optional
 import numpy as np
 from pydantic import BaseModel
-from typing import Optional
 from google.genai import types
 from backend.config import client
 from backend.db_core import get_db_connection
@@ -17,7 +17,7 @@ class ChatQuery(BaseModel):
 
 
 def execute_vector_rag_lookup(user_input: str) -> Optional[dict]:
-    """Runs a fast cosine match sweep across indexed recipe text tables."""
+    """Runs a fast cosine match sweep across indexed recipe text tables with correct sorting."""
     try:
         emb_resp = client.models.embed_content(model="gemini-embedding-001", contents=user_input)
         q_emb = emb_resp.embeddings.values if emb_resp.embeddings else None
@@ -48,12 +48,19 @@ def execute_vector_rag_lookup(user_input: str) -> Optional[dict]:
                 similarity = np.dot(q_vec, b_vec) / (q_norm * b_norm)
                 results.append((similarity, {"title": name, "category": cat, "macros": macros, "ingredients": ing}))
                 
-            results.sort(key=lambda x: x, reverse=True)
-            if results and results > 0.4:
-                return {"score": float(results), **results}
+            # ─── FIXED: SORT EXCLUSIVELY BY THE SIMILARITY FLOAT VALUE AT INDEX 0 ───
+            results.sort(key=lambda x: x[0], reverse=True)
+            
+            # ─── FIXED: UNPACK INDEX 0 FOR SCORE TO PREVENT TYPE ERRORS ───
+            if results and results[0][0] > 0.4:
+                best_match_score = results[0][0]
+                best_match_meta = results[0][1]
+                return {"score": float(best_match_score), **best_match_score}
     except Exception:
         pass
     return None
+
+# Keep query_gemini_with_rag() below this point exactly as it is!
 
 
 def query_gemini_with_rag(query: ChatQuery) -> dict:
@@ -80,9 +87,20 @@ def query_gemini_with_rag(query: ChatQuery) -> dict:
         "'### 🍳 [Meal Name] [P:[X]g, C:[Y]g, F:[Z]g, Kcal:[W]]' where X, Y, Z, W are exact numerical values calculated by you. "
         "Never leave out the bracket configuration block. Follow that header with bulleted macro stats and reasons. Respond immediately."
     )
+
+    # ─── UPDATED: USE GEMINI 3.5 FLASH AS THE LIVE MODEL ID ───
+    chat_session = client.chats.create(
+        model="gemini-3.5-flash", 
+        history=history_instances
+    )
     
-    chat_session = client.chats.create(model="gemini-2.5-flash", history=history_instances)
-    response = chat_session.send_message(message=query.user_input, config=types.GenerateContentConfig(system_instruction=sys_ins, temperature=0.3))
+    response = chat_session.send_message(
+        message=query.user_input, 
+        config=types.GenerateContentConfig(
+            system_instruction=sys_ins, 
+            temperature=0.3
+        )
+    )
     
     # Save conversation details to the log table
     conn.cursor().execute("INSERT INTO chat_history (role, content) VALUES (?, ?)", ("user", query.user_input))
