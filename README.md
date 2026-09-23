@@ -10,8 +10,8 @@ pip install fastapi uvicorn requests streamlit matplotlib pandas numpy google-ge
 pip freeze > requirements.txt
 pip install -r requirements.txt
 pip list
-python backend_service.py
-streamlit run frontend_app.py
+python main_backend.py
+streamlit run main_frontend.py
 
 ```
 
