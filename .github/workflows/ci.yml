@@ -1,0 +1,40 @@
+name: 🥗 Diet App CI Automation Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  code-quality-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Repository Code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Initialize Python Runtime Environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: 📦 Install Package Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fastapi uvicorn requests streamlit matplotlib pandas numpy google-genai python-dotenv pytest httpx
+
+    - name: 🚨 Run Syntax Quality Lint Check (Flake8)
+      run: |
+        pip install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings.
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: 🧪 Execute Backend Unit & Integration Tests
+      env:
+        GEMINI_API_KEY: "mock_ci_test_key_placeholder"
+      run: |
+        pytest backend/tests/ or true

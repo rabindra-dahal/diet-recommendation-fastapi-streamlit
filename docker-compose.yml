@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # --- FASTAPI BACKEND API LAYER ---
+  backend-core:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: diet_backend_container
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind local database state down to prevent data loss across container rebuilds
+      - db_data:/app
+    environment:
+      - TZ=Asia/Katmandu
+    restart: always
+
+  # --- STREAMLIT FRONTEND USER INTERFACE ---
+  frontend-ui:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: diet_frontend_container
+    ports:
+      - "8501:8501"
+    environment:
+      - TZ=Asia/Katmandu
+    # Ensure backend container is fully spun up before triggering UI connection pools
+    depends_on:
+      - backend-core
+    restart: always
+
+volumes:
+  db_data:
