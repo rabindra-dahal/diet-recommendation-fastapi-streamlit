@@ -1,9 +1,20 @@
-"""Automated unit test suite checking FastAPI operational endpoint states."""
+"""Automated unit and integration test suite validating FastAPI operational endpoint states."""
 
+import pytest
 from fastapi.testclient import TestClient
 from main_backend import app
+from backend.db_core import init_db
 
+# Instantiate the test client wrapper mapping your core application
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def setup_test_database_schema():
+    """Automated fixture running before every test execution pass to ensure schema initialization."""
+    # ─── FIXED: EXPLICITLY INITIALIZE THE SQLITE SCHEMAS FOR THE CI ENVIRONMENT ───
+    init_db()
+    yield # Let the test assertions execute cleanly inside an initialized data layer
 
 
 def test_database_kpi_metrics_endpoint():
